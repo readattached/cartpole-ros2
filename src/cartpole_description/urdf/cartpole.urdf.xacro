@@ -1,0 +1,151 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="pendulum_on_cart">
+
+  <!-- ==================== PROPERTY DEFINITIONS ==================== -->
+  <!-- Cart Properties -->
+  <xacro:property name="cart_mass" value="1.0"/>
+  <xacro:property name="cart_length" value="0.1"/>
+  <xacro:property name="cart_width" value="0.05"/>
+  <xacro:property name="cart_height" value="0.05"/>
+
+  <!-- Pendulum Properties -->
+  <xacro:property name="pend_mass" value="0.02"/>
+  <xacro:property name="pend_radius" value="0.01"/>
+  <xacro:property name="pend_length" value="0.3"/>
+
+  <!-- SlideBar Properties -->
+  <xacro:property name="bar_mass" value="2.0"/>
+  <xacro:property name="bar_length" value="1.0"/>
+  <xacro:property name="bar_width" value="0.05"/>
+  <xacro:property name="bar_height" value="0.05"/>
+  <xacro:property name="bar_offset_from_world" value="0.5"/>
+
+  <!-- ==================== INERTIA MACROS ==================== -->
+  <!-- Solid Box Inertia Macro -->
+  <xacro:macro name="box_inertia" params="m x y z xyz rpy">
+    <inertial>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <mass value="${m}"/>
+      <inertia 
+        ixx="${(1/12) * m * (y*y + z*z)}" ixy="0.0" ixz="0.0"
+        iyy="${(1/12) * m * (x*x + z*z)}" iyz="0.0"
+        izz="${(1/12) * m * (x*x + y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- Solid Cylinder Inertia Macro (Aligned along Z axis) -->
+  <xacro:macro name="cylinder_inertia" params="m r h xyz rpy">
+    <inertial>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <mass value="${m}"/>
+      <inertia 
+        ixx="${(1/12) * m * (3*r*r + h*h)}" ixy="0.0" ixz="0.0"
+        iyy="${(1/12) * m * (3*r*r + h*h)}" iyz="0.0"
+        izz="${(1/2) * m * r*r}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- ==================== LINKS & JOINTS ==================== -->
+  <link name="world"/>
+
+  <link name="slideBar">
+    <visual>
+      <geometry>
+        <box size="${bar_length} ${bar_width} ${bar_height}"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+      <material name="white">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <xacro:box_inertia m="${bar_mass}" x="${bar_length}" y="${bar_width}" z="${bar_height}" xyz="0 0 0" rpy="0 0 0"/>
+  </link>
+
+  <link name="cart">
+    <collision>
+      <geometry>
+        <box size="${cart_length} ${cart_width} ${cart_height}"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <visual>
+      <geometry>
+        <box size="${cart_length} ${cart_width} ${cart_height}"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+      <material name="red">
+        <color rgba="1 0 0 1"/>
+      </material>
+    </visual>
+    <xacro:box_inertia m="${cart_mass}" x="${cart_length}" y="${cart_width}" z="${cart_height}" xyz="0 0 0" rpy="0 0 0"/>
+  </link>
+
+  <link name="pendulum">
+    <collision>
+      <geometry>
+        <cylinder radius="${pend_radius}" length="${pend_length}"/>
+      </geometry>
+      <origin xyz="0 0 ${pend_length / 2}"/>
+    </collision>
+    <visual>
+      <geometry>
+        <cylinder radius="${pend_radius}" length="${pend_length}"/>
+      </geometry>
+      <origin xyz="0 0 ${pend_length / 2}"/>
+      <material name="white">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <xacro:cylinder_inertia m="${pend_mass}" r="${pend_radius}" h="${pend_length}" xyz="0 0 ${pend_length / 2}" rpy="0 0 0"/>
+  </link>
+
+  <joint name="world_to_base" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 ${bar_offset_from_world}"/>
+    <parent link="world"/>
+    <child link="slideBar"/>
+  </joint>
+
+  <joint name="slider_to_cart" type="prismatic">
+    <axis xyz="1 0 0"/>
+    <origin xyz="0 0 ${(bar_height / 2) + (cart_height / 2)}"/>
+    <parent link="slideBar"/>
+    <child link="cart"/>
+    <limit effort="1000.0" lower="${-(bar_length / 2) + 0.07}" upper="${(bar_length / 2) - 0.07}" velocity="5.0"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+
+  <joint name="cart_to_pendulum" type="continuous">
+    <axis xyz="0 1 0"/>
+    <origin xyz="0 ${(cart_width / 2) + pend_radius} 0" rpy="0 0 0"/>
+    <parent link="cart"/>
+    <child link="pendulum"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+
+  <!-- ==================== GAZEBO ROS 2 CONTROL ==================== -->
+  <ros2_control name="GazeboSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <joint name="slider_to_cart">
+      <command_interface name="effort"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="cart_to_pendulum">
+      <state_interface name="position">
+        <param name="initial_value">3.14</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>/home/khai/cartpole_ws/src/cartpole_control/config/cartpole_controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+</robot>
