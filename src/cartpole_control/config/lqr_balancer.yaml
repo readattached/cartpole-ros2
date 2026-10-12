@@ -1,0 +1,14 @@
+/lqr_cartpole_balancer:
+  ros__parameters:
+    g: 9.81     # gravity (m/s)
+    M: 1.0      # Cart mass (kg)
+    m: 0.02     # Pole mass (kg)
+    r: 0.01     # Pole radius (m)
+    L: 0.3      # Pole length (m)
+
+    Q: [10.0, 100.0, 1.0, 10.0]
+    R: 1.0
+
+    ke: 20.0
+    k_x: 1.0    # Pulls cart back to x = 0
+    k_dx: 0.0   # Damps cart speed
