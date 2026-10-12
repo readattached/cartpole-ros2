@@ -23,6 +23,8 @@ from launch.substitutions import Command, PathJoinSubstitution
 def generate_launch_description():
     robot_description_content = Command(['xacro ',
         PathJoinSubstitution([FindPackageShare('cartpole_description'), 'urdf', 'cartpole.urdf.xacro'])])
+
+    rviz_config_file = PathJoinSubstitution([FindPackageShare('cartpole_description'), 'rviz', 'cartpole.rviz'])
         
 
     robot_description = {'robot_description': robot_description_content}
@@ -51,6 +53,7 @@ def generate_launch_description():
         executable='rviz2',
         name='rviz2',
         output='screen',
+        arguments=['-d', rviz_config_file]
     )
 
     return LaunchDescription([
